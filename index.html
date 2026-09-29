@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Nibbo — arcade del jardín</title>
+<style>
+  :root {
+    --bg: #070f0a;
+    --panel: #0e2015;
+    --ink: #f2e9c8;
+    --accent: #ffd94d;
+    --leaf: #2c8a4e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 800px at 50% -10%, #12291b 0%, var(--bg) 60%);
+    color: var(--ink);
+    font-family: "Trebuchet MS", Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px;
+  }
+  h1 {
+    margin: 6px 0 2px;
+    font-size: 28px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    text-shadow: 0 0 18px rgba(255, 217, 77, 0.6);
+  }
+  .sub { margin: 0 0 8px; font-size: 13px; opacity: 0.8; }
+  #hud {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid #1f4a30;
+    border-radius: 10px;
+    padding: 6px 16px;
+    margin-bottom: 8px;
+    font-size: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #hud b { color: var(--accent); }
+  #hud-level { display: inline-block; }
+  #hud-level.level-pop {
+    animation: hud-level-pop 0.6s ease;
+  }
+  @keyframes hud-level-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.6); }
+    100% { transform: scale(1); }
+  }
+  #hud-lives { color: var(--accent); letter-spacing: 2px; }
+  #hud-seeds.blink {
+    animation: hud-seeds-blink 0.7s steps(2, start) infinite;
+  }
+  @keyframes hud-seeds-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.15; }
+  }
+  #stage { position: relative; }
+  canvas {
+    display: block;
+    width: min(94vw, 430px);
+    height: auto;
+    border: 2px solid #1f4a30;
+    border-radius: 12px;
+    background: #0a1c13;
+    touch-action: none;
+    image-rendering: auto;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(5, 12, 8, 0.78);
+    border-radius: 12px;
+    text-align: center;
+    padding: 16px;
+  }
+  #overlay.hidden { display: none; }
+  #overlay-title { margin: 0; font-size: 34px; letter-spacing: 4px; color: var(--accent); }
+  #overlay-text { font-size: 14px; line-height: 1.6; }
+  .clear-rows { display: table; margin: 4px auto 2px; border-collapse: collapse; font-size: 14px; }
+  .clear-row { display: table-row; }
+  .clear-row > span { display: table-cell; padding: 2px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+  .clear-row > span:first-child { text-align: left; opacity: 0.85; }
+  .clear-row.total > span { font-weight: bold; color: var(--accent); font-size: 16px; border-top: 1px solid #1f4a30; padding-top: 6px; }
+  .clear-next { font-size: 12px; opacity: 0.75; margin: 6px 0 0; }
+  #record-toast {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    background: var(--accent);
+    color: #3a2a10;
+    font-weight: bold;
+    font-size: 18px;
+    letter-spacing: 1px;
+    padding: 8px 18px;
+    border-radius: 10px;
+    box-shadow: 0 0 18px rgba(255, 217, 77, 0.6);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #record-toast.hidden { display: none; }
+  #record-toast.record-pop {
+    animation: record-pop 0.5s ease;
+  }
+  @keyframes record-pop {
+    0% { transform: translateX(-50%) scale(0.6); opacity: 0; }
+    60% { transform: translateX(-50%) scale(1.1); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #record-toast.record-pop { animation: none; }
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+    background: var(--accent);
+    color: #3a2a10;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-weight: bold;
+  }
+  button:active { transform: scale(0.97); }
+  #btn-pause, #btn-mute {
+    margin-top: 8px;
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid #1f4a30;
+    padding: 6px 18px;
+    font-weight: normal;
+  }
+  .help { margin: 8px 0 0; font-size: 12px; opacity: 0.75; text-align: center; line-height: 1.7; }
+</style>
+</head>
+<body>
+  <h1>NIBBO</h1>
+  <p class="sub">El bichito-farol del jardín de setos</p>
+
+  <div id="hud">
+    <span>Puntos <b id="hud-score">0</b></span>
+    <span>Récord <b id="hud-best">0</b></span>
+    <span>Nivel <b id="hud-level">1</b></span>
+    <span>Mejor tiempo <b id="hud-record">—</b></span>
+    <span>Semillas <b id="hud-seeds">0</b></span>
+    <span>Vidas <b id="hud-lives">●●●</b></span>
+  </div>
+
+  <div id="stage">
+    <canvas id="cv" width="504" height="552"></canvas>
+    <div id="overlay">
+      <h2 id="overlay-title">NIBBO</h2>
+      <p id="overlay-text"></p>
+      <button id="btn-start" type="button">Jugar</button>
+    </div>
+    <div id="record-toast" class="hidden" role="status" aria-live="polite"></div>
+  </div>
+
+  <button id="btn-pause" type="button">Pausa (P)</button>
+  <button id="btn-mute" type="button">Silenciar (M)</button>
+  <p class="help">Flechas o WASD para moverte · P pausa · M sonido · swipe o toque en móvil.<br>
+  Las 4 semillas grandes asustan a las polillas: ¡cázalas!</p>
+
+  <script src="logic.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
